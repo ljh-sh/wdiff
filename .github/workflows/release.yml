@@ -156,7 +156,7 @@ jobs:
       #     wdiff-x86_64-linux-musl.tar.gz.sig \
       #     wdiff-x86_64-linux-musl.tar.gz.cert
       - name: Install cosign
-        uses: sigstore/cosign-installer@2c152972ef6649eb3f7c917a9b9b5d1e2c408c46 # v3.5.0
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
       - name: Sign release artefacts (keyless, OIDC)
         env:
           COSIGN_EXPERIMENTAL: 1
