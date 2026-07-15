@@ -40,24 +40,45 @@ manual install instructions.
 
 ## Platform matrix
 
-Every release builds **5 targets** via GitHub Actions on native
-runners. Linux uses **musl-static** (Alpine toolchain) so the
-binary runs on Alpine, Debian/Ubuntu, RHEL/Fedora, Arch &mdash;
-every Linux distro &mdash; with zero system-library dependencies;
-there is intentionally no separate glibc/dynamic Linux variant.
+Every release publishes the targets that successfully built.
+The full 5-target matrix (linux-musl ×2, macos ×2, windows ×1)
+is in `.github/workflows/release.yml`; targets that fail at
+build time are **absent from the release** (no half-broken
+artefacts). `always()` release policy: if any entry succeeds,
+the release fires.
 
-| target | runner | linkage | archive |
-|---|---|---|---|
-| `x86_64-linux-musl`  | `ubuntu-latest` + Alpine 3.20 docker | fully static musl | `.tar.gz` |
-| `aarch64-linux-musl` | `ubuntu-24.04-arm` + Alpine 3.20 docker | fully static musl | `.tar.gz` |
-| `aarch64-macos`      | `macos-14` | static, system libc/libSystem | `.tar.gz` |
-| `x86_64-macos`       | `macos-14` (cross from aarch64) | static, system libc/libSystem | `.tar.gz` |
-| `x86_64-windows`     | `windows-latest` + MSYS2 + mingw64 | fully static (no DLLs) | `.zip` |
+### v0.3.0 matrix status
 
-aarch64-windows and additional targets are deferred. Restoring
-aarch64-windows would require either LLVM clang with
-`-target aarch64-w64-windows-msvc`, or building mingw-w64-aarch64
-from source.
+| target | runner | linkage | v0.3.0? | blocked by |
+|---|---|---|---|---|
+| `x86_64-linux-musl`  | `ubuntu-latest` + Alpine 3.20 docker | fully static musl | ❌ | diffutils 3.10 makeinfo/help2man dep drift; deferred to v0.4.0 |
+| `aarch64-linux-musl` | `ubuntu-24.04-arm` + Alpine 3.20 docker | fully static musl | ❌ | same as x86_64-linux-musl |
+| `aarch64-macos`      | `macos-14` | static, system libc/libSystem | ✅ | — |
+| `x86_64-macos`       | `macos-14` (cross from aarch64) | static, system libc/libSystem | ❌ | diffutils 3.10 gnulib `sys_socket.h` redefines `socklen_t` and conflicts with the new Xcode 15.4 `<sys/_types/_socklen_t.h>`; deferred to v0.4.0 (downgrade diffutils to 3.8 or apply a local gnulib patch) |
+| `x86_64-windows`     | `windows-latest` + MSYS2 + mingw64 | fully static (no DLLs) | ❌ | ICU's `runConfigureICU Linux` checks for `clang++`; mingw64 doesn't ship clang++; deferred to v0.4.0 (will switch to GCC config) |
+
+**v0.2.4 → v0.3.0:** same matrix (1 of 5). v0.3.0 marks the
+socklen_t / mingw deps fixes-tried milestone.
+
+**v0.4.0 plan:**
+
+1. Downgrade `upstream/diffutils/` to **3.8** (predates the
+   `_socklen_t.h` gnulib conflict). Trade-off: lose 3.10
+   security patches; re-vendor 3.11+ when upstream fixes it.
+2. Add `upstream/diffutils/patches/0001-*.patch` that disables
+   gnulib's `sys_socket.h` redefinition of `socklen_t` when
+   `<sys/_types/_socklen_t.h>` (Apple SDK 14+) is present.
+3. For Windows: pass `CC=x86_64-w64-mingw32-gcc` + the same
+   for `CXX` to `runConfigureICU`, with the
+   `--host=x86_64-w64-mingw32` triplet so ICU's clang++ probe
+   is bypassed.
+4. For linux-musl: pin Alpine apk versions in a `Dockerfile`
+   to lock the toolchain (avoid the dep drift).
+
+The current v0.3.0 ships **aarch64-macos** only; the
+matrix-completion work is in v0.4.0.
+
+aarch64-windows and additional targets remain deferred.
 
 ## Quick check after install
 
