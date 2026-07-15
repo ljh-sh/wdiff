@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Build audit — wdiff</title>
+<meta name="description" content="How ljh-sh/wdiff is built: the 5-target matrix, the build script flow, SHA256SUMS verification, and reproducibility notes.">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<main class="wrap">
+
+<a href="#main" class="skip">Skip to content</a>
+
+<header class="page-header">
+    <nav class="section-nav"><a href="index.html">↑ home</a> · <a href="install.html">install</a> · <a href="usage.html">usage</a> · <strong>build audit</strong> · <a href="security.html">security</a></nav>
+</header>
+
+
+<section class="hero">
+    <h1>Build audit</h1>
+    <p class="tagline">How <code>ljh-sh/wdiff</code> is built, what
+        each target produces, and how to verify a release.</p>
+</section>
+
+<section id="matrix">
+    <h2>5-target build matrix</h2>
+    <table>
+        <thead><tr><th>target</th><th>runner</th><th>toolchain</th><th>linkage</th></tr></thead>
+        <tbody>
+            <tr><td><code>x86_64-linux-musl</code></td><td><code>ubuntu-latest</code> + Alpine 3.20 docker</td><td>alpine gcc + musl</td><td>fully static</td></tr>
+            <tr><td><code>aarch64-linux-musl</code></td><td><code>ubuntu-24.04-arm</code> + Alpine 3.20 docker</td><td>alpine gcc + musl</td><td>fully static</td></tr>
+            <tr><td><code>aarch64-macos</code></td><td><code>macos-14</code></td><td>Apple clang</td><td>static, system libc/libSystem</td></tr>
+            <tr><td><code>x86_64-macos</code></td><td><code>macos-14</code></td><td>Apple clang (<code>-arch x86_64</code>)</td><td>static, system libc/libSystem</td></tr>
+            <tr><td><code>x86_64-windows</code></td><td><code>windows-latest</code> + MSYS2 + mingw64</td><td>x86_64-w64-mingw32-gcc</td><td>fully static (no DLLs)</td></tr>
+        </tbody>
+    </table>
+    <p>
+        The matrix is split into two workflows (per the ljh-sh dist
+        regime):
+    </p>
+    <ul>
+        <li><b><code>build-and-test.yml</code></b> &mdash; fires on
+            push to <code>main</code> + every PR. Runs the matrix
+            + smoke + uploads per-target artifacts.</li>
+        <li><b><code>release.yml</code></b> &mdash; fires on
+            <code>v*</code> tags + <code>workflow_dispatch</code>.
+            Runs the same matrix, downloads all artifacts, and
+            creates a GitHub Release with the
+            <code>SHA256SUMS</code> file.</li>
+    </ul>
+</section>
+
+<section id="build-script">
+    <h2>What <code>scripts/build.sh</code> does</h2>
+    <ol>
+        <li><b>autoreconf -if --force</b> on
+            <code>upstream/wdiff/</code> and
+            <code>upstream/diffutils/</code>. The
+            <code>--force</code> flag is needed because the
+            upstream 1.2.2 tarball ships pre-generated
+            <code>po/</code> files that <code>autopoint</code>
+            would otherwise refuse to overwrite.</li>
+        <li><b>Sub-build 1: diffutils</b> &mdash; out-of-tree
+            <code>configure</code> with
+            <code>--disable-shared --enable-static</code>, then
+            <code>make</code>. Produces
+            <code>build/diffutils/src/diff</code>.</li>
+        <li><b>Sub-build 2: wdiff</b> &mdash; out-of-tree
+            <code>configure</code> with
+            <code>DIFF_PROGRAM=$abs_path_to_diff</code> baked in
+            (via the <code>diff_cv_prog_diff_program</code> cache
+            variable), then <code>make</code>. Produces
+            <code>build/wdiff/src/wdiff</code>.</li>
+    </ol>
+    <p>
+        Both sub-builds are <b>out-of-tree</b>: nothing under
+        <code>upstream/</code> is mutated. This lets musl-Alpine
+        and host-glibc builds share the same source tree without
+        fighting over Makefile state.
+    </p>
+</section>
+
+<section id="reproducibility">
+    <h2>Reproducibility</h2>
+    <p>
+        The build is <b>not bit-for-bit reproducible</b> across
+        machines (yet) because:
+    </p>
+    <ul>
+        <li>The upstream wdiff / diffutils autotools
+            <code>configure</code> scripts embed the build host
+            and timestamp into the generated <code>config.h</code>.</li>
+        <li>The default ar / ranlib ordering depends on the
+            toolchain vendor (alpine gcc 14 vs. macOS Apple clang).</li>
+    </ul>
+    <p>
+        A user who runs <code>bash scripts/build.sh</code> on the
+        same OS with the same toolchain version will get a
+        functionally-identical binary but with different bytes.
+        Bit-for-bit reproducibility is a future v0.2.0 goal,
+        tracked under the OpenSSF Scorecard "reproducible-builds"
+        check.
+    </p>
+</section>
+
+<section id="verify">
+    <h2>Verifying a release</h2>
+    <p>Each GitHub Release ships:</p>
+    <ul>
+        <li>5 per-target archives (<code>wdiff-&lt;target&gt;.tar.gz</code>
+            or <code>.zip</code>)</li>
+        <li>5 per-archive <code>.sha256</code> files</li>
+        <li>1 top-level <code>SHA256SUMS</code> file (basename-keyed,
+            no <code>dist/</code> prefix)</li>
+    </ul>
+    <p>To verify the Linux x86_64 musl binary:</p>
+<pre><code>curl -L -O https://github.com/ljh-sh/wdiff/releases/latest/download/wdiff-x86_64-linux-musl.tar.gz
+curl -L -O https://github.com/ljh-sh/wdiff/releases/latest/download/wdiff-x86_64-linux-musl.tar.gz.sha256
+sha256sum -c wdiff-x86_64-linux-musl.tar.gz.sha256
+</code></pre>
+    <p>To verify all 5 archives against the top-level
+        <code>SHA256SUMS</code>:</p>
+<pre><code>curl -L -O https://github.com/ljh-sh/wdiff/releases/latest/download/SHA256SUMS
+for f in wdiff-*.tar.gz wdiff-*.zip; do sha256sum -c &lt;(grep "  $f$" SHA256SUMS); done
+</code></pre>
+</section>
+
+<footer>
+    <p>
+        <a href="index.html">↑ home</a> ·
+        <a href="install.html">install</a> ·
+        <a href="usage.html">usage</a> ·
+        <a href="https://github.com/ljh-sh/wdiff">ljh-sh/wdiff on GitHub</a>
+    </p>
+</footer>
+
+</main>
+
+</body>
+</html>

@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>wdiff — a free word-level diff tool in one static binary</title>
+<meta name="description" content="wdiff: free (GPL-3.0) word-level diff front-end, distributed as a single statically-linked binary for Linux/macOS/Windows. Vendored GNU wdiff 1.2.2 + diffutils 3.10 by ljh-sh.">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<main class="wrap">
+
+<a href="#main" class="skip">Skip to content</a>
+
+<header class="page-header">
+    <nav class="section-nav"><strong>↑ home</strong> · <a href="install.html">install</a> · <a href="usage.html">usage</a> · <a href="build-audit.html">build audit</a> · <a href="security.html">security</a></nav>
+</header>
+
+
+<section class="hero">
+    <h1>wdiff</h1>
+    <p class="tagline"><b>the free <code>wdiff</code> word-level diff
+        front-end</b>, distributed as a single self-contained static
+        binary.</p>
+    <p class="byline">
+        <code>wdiff</code> is vendored from
+        <a href="https://ftp.gnu.org/gnu/wdiff/">GNU wdiff 1.2.2</a>
+        (François Pinard, GPL-3.0) with
+        <a href="https://ftp.gnu.org/gnu/diffutils/">GNU diffutils 3.10</a>
+        bundled so the <code>diff</code> it shells out to is always
+        available — no <code>$PATH</code> traversal at runtime.
+    </p>
+</section>
+
+<section id="what">
+    <h2>What it is</h2>
+    <p>
+        Stock <code>wdiff</code> is a thin front-end that runs
+        <code>diff</code> and re-formats the line-level output into
+        <b>word-level</b> markers: deleted words get
+        <code>[-like this-]</code>, inserted words get
+        <code>{+like this+}</code>. Compared to stock
+        <code>diff</code>, you see exactly <i>which words</i> changed,
+        not just <i>which lines</i>.
+    </p>
+<pre><code>$ printf 'the quick brown fox\n' &gt; a.txt
+$ printf 'the slow brown fox\n' &gt; b.txt
+$ wdiff a.txt b.txt
+the [-quick-] {+slow+} brown fox
+</code></pre>
+    <p>
+        Most useful when two texts differ by a few words but
+        paragraphs have been refilled — exactly the case where
+        <code>diff -u</code> shows a whole paragraph as changed.
+    </p>
+</section>
+
+<section id="install">
+    <h2>Install (one line)</h2>
+    <p>
+        The fastest path uses
+        <a href="https://www.x-cmd.com/llms.txt">x-cmd</a>:
+    </p>
+<pre><code>x eget ljh-sh/wdiff
+</code></pre>
+    <p>
+        This installs <code>wdiff</code>, <code>diff</code>, and the
+        man pages to <code>~/.local/bin/</code> and
+        <code>~/.local/share/man/man1/</code>. See
+        <a href="install.html">install</a> for the manual walkthrough
+        or the binary-only install.
+    </p>
+</section>
+
+<section id="matrix">
+    <h2>Platform matrix</h2>
+    <p>
+        Every release builds <b>5 targets</b> via GitHub Actions on
+        native runners. Linux uses <b>musl-static</b> (Alpine
+        toolchain) so the binary runs on Alpine, Debian/Ubuntu,
+        RHEL/Fedora, Arch — every Linux distro — with zero
+        system-library dependencies. There is intentionally no
+        separate glibc/dynamic Linux variant.
+    </p>
+    <table>
+        <thead><tr><th>target</th><th>runner</th><th>linkage</th><th>archive</th></tr></thead>
+        <tbody>
+            <tr><td><code>x86_64-linux-musl</code></td><td><code>ubuntu-latest</code> + Alpine 3.20 docker</td><td>fully static musl</td><td><code>.tar.gz</code></td></tr>
+            <tr><td><code>aarch64-linux-musl</code></td><td><code>ubuntu-24.04-arm</code> + Alpine 3.20 docker</td><td>fully static musl</td><td><code>.tar.gz</code></td></tr>
+            <tr><td><code>aarch64-macos</code></td><td><code>macos-14</code></td><td>static, system libc/libSystem</td><td><code>.tar.gz</code></td></tr>
+            <tr><td><code>x86_64-macos</code></td><td><code>macos-14</code> (cross from aarch64)</td><td>static, system libc/libSystem</td><td><code>.tar.gz</code></td></tr>
+            <tr><td><code>x86_64-windows</code></td><td><code>windows-latest</code> + MSYS2 + mingw64</td><td>fully static (no DLLs)</td><td><code>.zip</code></td></tr>
+        </tbody>
+    </table>
+    <p>
+        aarch64-windows and additional targets are deferred. Restoring
+        aarch64-windows would require either LLVM clang with
+        <code>-target aarch64-w64-windows-msvc</code>, or building
+        mingw-w64-aarch64 from source.
+    </p>
+</section>
+
+<section id="quick-check">
+    <h2>Quick check after install</h2>
+<pre><code>$ wdiff --version | head -1
+wdiff (GNU wdiff) 1.2.2
+
+$ diff --version | head -1
+diff (GNU diffutils) 3.10
+
+$ printf 'the quick brown fox\n' &gt; /tmp/a.txt
+$ printf 'the slow brown fox\n' &gt; /tmp/b.txt
+$ wdiff /tmp/a.txt /tmp/b.txt
+the [-quick-] {+slow+} brown fox
+</code></pre>
+</section>
+
+<section id="audit">
+    <h2>Security</h2>
+    <p>
+        See <a href="security.html">security</a> for the
+        source-level audit. Two HIGH findings (both <code>popen()</code>
+        + <code>$PATH</code> lookup) are mitigated in the ljh-sh dist
+        by absolute-pathing <code>DIFF_PROGRAM</code> to the bundled
+        <code>diff</code> binary, so the runtime binary never
+        traverses <code>$PATH</code> to find <code>diff</code>.
+    </p>
+</section>
+
+<footer>
+    <p>
+        This site is the GitHub Pages root for
+        <a href="https://github.com/ljh-sh/wdiff">ljh-sh/wdiff</a>.
+        Vendored source under
+        <a href="https://github.com/ljh-sh/wdiff/tree/main/upstream/wdiff">upstream/wdiff/</a>
+        is GPL-3.0 by François Pinard + the Free Software
+        Foundation; <a href="https://github.com/ljh-sh/wdiff/tree/main/upstream/diffutils">upstream/diffutils/</a>
+        is GPL-3.0 by the FSF. The wrapper source under this repo is
+        MIT. See <a href="NOTICE.md"><code>NOTICE.md</code></a> for
+        the full attribution.
+    </p>
+</footer>
+
+</main>
+
+</body>
+</html>

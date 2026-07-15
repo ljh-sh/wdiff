@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Install — wdiff</title>
+<meta name="description" content="One-line install of the free word-level diff tool: x eget ljh-sh/wdiff, or download a per-target static binary, or build from source.">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<main class="wrap">
+
+<a href="#main" class="skip">Skip to content</a>
+
+<header class="page-header">
+    <nav class="section-nav"><a href="index.html">↑ home</a> · <strong>install</strong> · <a href="usage.html">usage</a> · <a href="build-audit.html">build audit</a> · <a href="security.html">security</a></nav>
+</header>
+
+
+<section class="hero">
+    <h1>Install</h1>
+    <p class="tagline">Three install paths &mdash; static binary first,
+        manual per-target download second, source build third.</p>
+</section>
+
+<section id="static">
+    <h2>1. Static binary (one line)</h2>
+    <p>The fastest and most portable install path. Use
+        <code>x eget</code> &mdash; <a href="https://www.x-cmd.com/">x-cmd</a>'s
+        wrapper around the upstream GitHub release pipeline:</p>
+<pre><code>x eget ljh-sh/wdiff
+</code></pre>
+    <p>
+        The installed binaries are <code>wdiff</code>, <code>diff</code>,
+        and the man pages. The <code>wdiff</code> binary is compiled
+        with <code>DIFF_PROGRAM</code> absolute-pathed to the bundled
+        <code>diff</code> binary &mdash; so the runtime lookup of
+        <code>diff</code> is fully predictable, no
+        <code>$PATH</code> traversal.
+    </p>
+    <p>After install:</p>
+<pre><code>$ wdiff --version | head -1
+wdiff (GNU wdiff) 1.2.2
+
+$ diff --version | head -1
+diff (GNU diffutils) 3.10
+</code></pre>
+
+    <h3>What the eget install does</h3>
+    <p>
+        <code>x eget ljh-sh/wdiff</code> picks the right per-target
+        tarball for your OS/arch, downloads it, verifies its
+        SHA256 against the top-level <code>SHA256SUMS</code> shipped
+        in the GitHub release, and untars the <code>bin/</code> +
+        <code>man/</code> + <code>README.md</code> into your x-cmd
+        local directory. No <code>sudo</code>, no system-package
+        manager, no glibc / diff / ncurses to install.
+    </p>
+</section>
+
+<section id="manual">
+    <h2>2. Manual per-target download</h2>
+    <p>
+        If you can't use x-cmd, head to the
+        <a href="https://github.com/ljh-sh/wdiff/releases">GitHub Releases</a>
+        page and pick the tarball for your target. Each release
+        publishes 5 archives + 5 <code>.sha256</code> + a top-level
+        <code>SHA256SUMS</code>.
+    </p>
+    <p>Example (Linux x86_64 musl):</p>
+<pre><code>curl -L -o wdiff.tar.gz https://github.com/ljh-sh/wdiff/releases/latest/download/wdiff-x86_64-linux-musl.tar.gz
+curl -L -o wdiff.tar.gz.sha256 https://github.com/ljh-sh/wdiff/releases/latest/download/wdiff-x86_64-linux-musl.tar.gz.sha256
+sha256sum -c wdiff.tar.gz.sha256
+tar xzf wdiff.tar.gz
+sudo install -m 0755 wdiff-x86_64-linux-musl/bin/wdiff wdiff-x86_64-linux-musl/bin/diff /usr/local/bin/
+sudo install -m 0644 wdiff-x86_64-linux-musl/man/man1/*.1 /usr/local/share/man/man1/ 2&gt;/dev/null || true
+</code></pre>
+    <p>On macOS, use <code>shasum -a 256</code> instead of
+        <code>sha256sum</code>; on Windows, use
+        <code>Get-FileHash -Algorithm SHA256</code>.</p>
+</section>
+
+<section id="source">
+    <h2>3. Build from source (vendoring update)</h2>
+    <p>This repo ships <code>upstream/wdiff/</code> and
+        <code>upstream/diffutils/</code> as clean copies (no local
+        patches). To refresh:</p>
+<pre><code># wdiff
+curl -L -o /tmp/wdiff.tar.gz https://ftp.gnu.org/gnu/wdiff/wdiff-1.2.2.tar.gz
+rm -rf upstream/wdiff &amp;&amp; tar xzf /tmp/wdiff.tar.gz -C upstream/ \
+  &amp;&amp; mv upstream/wdiff-1.2.2 upstream/wdiff
+
+# diffutils
+curl -L -o /tmp/diffutils.tar.xz https://ftp.gnu.org/gnu/diffutils/diffutils-3.10.tar.xz
+rm -rf upstream/diffutils &amp;&amp; tar xJf /tmp/diffutils.tar.xz -C upstream/ \
+  &amp;&amp; mv upstream/diffutils-3.10 upstream/diffutils
+</code></pre>
+    <p>Then run <code>bash scripts/build.sh &amp;&amp; bash scripts/smoke.sh</code>
+        to reproduce the CI locally. For a true musl-static build:</p>
+<pre><code>docker run --rm --platform linux/amd64 -v "$PWD":/w -w /w alpine:3.20 \
+    sh -c 'apk add --no-cache bash gettext-dev libxslt &gt;/dev/null \
+      &amp;&amp; bash /w/scripts/build-alpine.sh &amp;&amp; bash /w/scripts/smoke.sh'
+</code></pre>
+    <p>
+        See <a href="build-audit.html">build audit</a> for the
+        per-target SHAs and the
+        <a href="https://github.com/ljh-sh/wdiff/blob/main/scripts/build.sh"><code>scripts/build.sh</code></a>
+        source.
+    </p>
+</section>
+
+<footer>
+    <p>
+        <a href="index.html">↑ home</a> ·
+        <a href="usage.html">usage →</a> ·
+        <a href="https://github.com/ljh-sh/wdiff">ljh-sh/wdiff on GitHub</a>
+    </p>
+</footer>
+
+</main>
+
+</body>
+</html>

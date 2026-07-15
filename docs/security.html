@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Security — wdiff</title>
+<meta name="description" content="Source-level security audit of vendored wdiff 1.2.2 + diffutils 3.10; HIGH findings and ljh-sh dist mitigations.">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<main class="wrap">
+
+<a href="#main" class="skip">Skip to content</a>
+
+<header class="page-header">
+    <nav class="section-nav"><a href="index.html">↑ home</a> · <a href="install.html">install</a> · <a href="usage.html">usage</a> · <a href="build-audit.html">build audit</a> · <strong>security</strong></nav>
+</header>
+
+
+<section class="hero">
+    <h1>Security</h1>
+    <p class="tagline">Source-level audit summary. The full
+        <code>AUDIT-2026-07-15.md</code> lives in the repo.</p>
+</section>
+
+<section id="summary">
+    <h2>Summary</h2>
+    <table>
+        <thead><tr><th>#</th><th>level</th><th>area</th><th>title</th></tr></thead>
+        <tbody>
+            <tr><td>1</td><td><b>HIGH</b></td><td>exec</td><td><code>popen("diff", ...)</code> PATH lookup, mitigated in dist build</td></tr>
+            <tr><td>2</td><td><b>HIGH</b></td><td>exec</td><td><code>popen($PAGER, ...)</code> follows <code>$PAGER</code>, documented</td></tr>
+            <tr><td>3</td><td>MEDIUM</td><td>tempfile</td><td>Temp files default to <code>/tmp</code> (privacy leak)</td></tr>
+            <tr><td>4</td><td>LOW</td><td>ctype</td><td><code>isspace(int)</code> on <code>getc()</code> return without cast</td></tr>
+            <tr><td>5</td><td>LOW</td><td>alloc</td><td><code>asprintf</code> overwrites its input pointer (small leak)</td></tr>
+            <tr><td>6–9</td><td>INFO</td><td>—</td><td>locale-dependent <code>isspace</code>, signal handler, no network, diffutils 3.10 baseline</td></tr>
+        </tbody>
+    </table>
+</section>
+
+<section id="h1">
+    <h2>Finding #1 (HIGH) — <code>popen("diff", ...)</code> PATH lookup</h2>
+    <p><b>Where.</b> <code>src/wdiff.c:1005-1019</code>
+        <code>launch_input_program</code> calls
+        <code>readpipe(DIFF_PROGRAM, ...)</code> where
+        <code>DIFF_PROGRAM</code> is the literal string
+        <code>"diff"</code> by default.</p>
+    <p><b>Effect.</b> wdiff runs <code>diff</code> via
+        <code>$PATH</code> lookup. If <code>PATH</code> is hostile
+        (e.g. <code>PATH=/tmp:$PATH</code> and an attacker has
+        written <code>/tmp/diff</code>), wdiff runs the attacker's
+        binary. The attacker's binary can do anything the calling
+        user can. This is the same threat model as
+        <code>git</code>, <code>less</code>, and every other tool
+        that uses <code>popen</code> + PATH lookup.</p>
+    <p><b>Mitigation in the ljh-sh dist.</b>
+        <code>scripts/build.sh</code> passes
+        <code>DIFF_PROGRAM</code> as an <b>absolute path</b>
+        pointing to the bundled <code>diff</code> binary in the same
+        dist archive. The runtime binary never traverses
+        <code>$PATH</code>. The <code>smoke.sh</code> test
+        verifies this by setting <code>PATH=/tmp/with-sentinel:$PATH</code>
+        and asserting that the sentinel script is never invoked.</p>
+</section>
+
+<section id="h2">
+    <h2>Finding #2 (HIGH) — <code>popen($PAGER, ...)</code></h2>
+    <p><b>Where.</b> <code>src/wdiff.c:1051-1105</code>
+        <code>launch_output_program</code>.</p>
+    <p><b>Effect.</b> When stdout is a tty and <code>-a</code>
+        autopager is on, wdiff invokes the user's
+        <code>PAGER</code> (<code>WDIFF_PAGER</code> first, then
+        <code>PAGER</code>, then a compile-time default). This is
+        the documented behaviour of <code>$PAGER</code> in many
+        tools. The ljh-sh dist does not enable autopager by default
+        in any future <code>--agent</code> mode; users who want
+        autopager accept the same risk they already have via
+        <code>man</code>, <code>git log</code>, etc.</p>
+</section>
+
+<section id="m3">
+    <h2>Finding #3 (MEDIUM) — temp files default to <code>/tmp</code></h2>
+    <p><b>Effect.</b> wdiff uses <code>mkstemp()</code> (race-free
+        random suffix), but always in <code>/tmp</code>. On a
+        multi-user system a local attacker can
+        <code>inotify /tmp/wdiff*</code> and observe wdiff being
+        run &mdash; privacy leak, not code execution.</p>
+    <p><b>Suggested fix.</b> Patch
+        <code>create_template_filename</code> in wdiff to honor
+        <code>$TMPDIR</code> first (already done at line 542) and
+        verify <code>$TMPDIR</code> on the build host. Deferred to
+        a future build-script patch.</p>
+</section>
+
+<section id="mitigations">
+    <h2>Dist-only mitigations already applied</h2>
+    <ul>
+        <li><b>Absolute <code>DIFF_PROGRAM</code></b> &mdash; closes
+            finding #1 for the dist binary. Smoke-tested in
+            <code>scripts/smoke.sh</code> section 3.</li>
+        <li><b>No PAGER by default</b> &mdash; autopager is opt-in
+            via <code>-a</code>. Closes the threat-model surface
+            for users who don't use <code>-a</code>.</li>
+        <li><b>5-target CI matrix</b> &mdash; each release is
+            rebuilt from scratch on every push + every tag. No
+            cached binary artefacts cross the trust boundary.</li>
+        <li><b>Vendored at <code>wdiff 1.2.2</code> + <code>diffutils 3.10</code></b>
+            &mdash; the latest stable versions of both, inheriting
+            upstream security fixes. Re-vendor (or replace with
+            <code>git subtree pull</code>) when either ships a
+            security release.</li>
+    </ul>
+</section>
+
+<footer>
+    <p>
+        <a href="index.html">↑ home</a> ·
+        <a href="usage.html">usage</a> ·
+        <a href="https://github.com/ljh-sh/wdiff/blob/main/AUDIT-2026-07-15.md">Full audit on GitHub →</a>
+    </p>
+</footer>
+
+</main>
+
+</body>
+</html>

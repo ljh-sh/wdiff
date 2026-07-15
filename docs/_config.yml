@@ -1,0 +1,24 @@
+# GitHub Pages config for ljh-sh/wdiff — Jekyll ("legacy" build_type).
+# All content is hand-written HTML, not Markdown — matches the lhasa
+# pattern. No lang switch per the v0.1.0 design (EN-only).
+
+title: "wdiff"
+description: "Free (GPL-3.0) word-level diff front-end, distributed as a single statically-linked binary for Linux/macOS/Windows. GNU wdiff 1.2.2 + diffutils 3.10 vendored by ljh-sh."
+
+# Site served at https://ljh-sh.github.io/wdiff/
+baseurl: /wdiff
+url:    https://ljh-sh.github.io
+
+markdown: kramdown
+highlighter: rouge
+
+# We don't use the default minima theme — we ship our own styles.css.
+# Setting theme to null disables the default layout.
+theme: null
+
+# Ignore vendor/build outputs so they're never published.
+exclude:
+  - _site
+  - .sass-cache
+  - node_modules
+  - vendor
