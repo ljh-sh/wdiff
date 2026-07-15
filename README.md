@@ -47,36 +47,61 @@ build time are **absent from the release** (no half-broken
 artefacts). `always()` release policy: if any entry succeeds,
 the release fires.
 
-### v0.4.0 matrix status
+### v0.5.0 matrix status
 
-| target | runner | linkage | v0.4.0? | blocked by |
+| target | runner | linkage | v0.5.0? | blocked by |
 |---|---|---|---|---|
-| `x86_64-linux-musl`  | `ubuntu-latest` + Alpine 3.20 docker | fully static musl | ❌ | diffutils 3.10 doc/info target + makeinfo dep drift; deferred to v0.5.0 |
+| `x86_64-linux-musl`  | `ubuntu-latest` + Alpine 3.20 docker | fully static musl | ❌ | diffutils 3.10 configure probe + makeinfo dep drift; 4 v0.5.0-rc attempts (rc1 through rc4) all failed with various apksolver / configure / aclocal errors. Deferred to v0.6.0 (probably requires Dockerfile with explicit `apk add` step) |
 | `aarch64-linux-musl` | `ubuntu-24.04-arm` + Alpine 3.20 docker | fully static musl | ❌ | same as x86_64-linux-musl |
 | `aarch64-macos`      | `macos-14` | static, system libc/libSystem | ✅ | — |
-| `x86_64-macos`       | `macos-14` (cross from aarch64) | static, system libc/libSystem | ✅ | **unblocked in v0.4.0** via `upstream/diffutils/patches/socklen_t_fallback.h` + `make GL_CFLAG_GNULIB_WARNINGS=` |
-| `x86_64-windows`     | `windows-latest` + MSYS2 + mingw64 | fully static (no DLLs) | ❌ | mingw64 ICU build needs a real fix in scripts/build.sh's windows case (and the v0.4.0 attempt didn't get the `--host=` triplet right); deferred to v0.5.0 |
+| `x86_64-macos`       | `macos-14` (cross from aarch64) | static, system libc/libSystem | ✅ | **stayed unblocked from v0.4.0** — the broader `-D_SOCKLEN_T` family + `socklen_t_fallback.h` expansion for ssize_t / intmax_t / uid_t / gid_t / off_t etc. unblocked the cross-compile (but only when applied to the darwin case; the host build still uses the working SDK typedefs) |
+| `x86_64-windows`     | `windows-latest` + MSYS2 + mingw64 | fully static (no DLLs) | ❌ | mingw64's GCC + ICU's `runConfigureICU Linux` (which probes for clang++) don't play together; the 4 v0.5.0-rc attempts to set CC/CXX to `x86_64-w64-mingw32-{gcc,g++}` + `--host=x86_64-w64-mingw32` all failed. Deferred to v0.6.0 (probably requires patching ICU's `runConfigureICU` directly) |
 
-**v0.3.0 → v0.4.0:** **+1 target** (wdiff x86_64-macos) via the
-socklen_t fallback patch. **dwdiff** had the ICU CXXFLAGS env
-var not propagating to sub-makes — needs a `sed` post-process
-to the ICU Makefile to add `-Wno-error` directly. Documented
-in `memory://feedback-vendored-c-diffutils-3-10-issues` and
-`memory://feedback-dist-release-pipeline`.
+**v0.4.0 → v0.5.0:** **no new targets shipped** (still 2 of 5 for
+wdiff, 1 of 5 for dwdiff). The v0.5.0 attempt discovered that
+the musl + windows + x86_64-macos builds need deeper upstream
+work than a single session can fix:
+- The Xcode 15.4 SDK typedef family is broken across MANY
+  types (ssize_t, intmax_t, uid_t, gid_t, off_t, id_t, blkcnt_t,
+  fsblkcnt_t, fsfilcnt_t) — we patched all of them in
+  `socklen_t_fallback.h`, but new compile rules still expose
+  similar issues. v0.6.0 needs an in-tree patched SDK
+  replacement.
+- The musl gcc-13 + ICU 78.3 + `-O3` interaction produces
+  warnings that are promoted to errors despite every `-Wno-error`
+  / `-Wno-error=deprecated-declarations` / etc. attempt. The
+  `-Werror → -Wno-error` sed substitution didn't help because
+  the warnings come from `-pedantic-errors` (not `-Werror`).
+  v0.6.0 needs to either downgrade ICU to 76.1 or
+  post-process the `.cpp` files directly.
+- The MSYS2 mingw64 + ICU `runConfigureICU` path doesn't
+  match; mingw64 has gcc but not clang, and ICU's Linux
+  configure probe is hard-coded to look for clang++. v0.6.0
+  needs a manual cross-compile of ICU + wdiff/dwdiff with
+  explicit compiler paths, bypassing the `runConfigureICU`
+  helper.
 
-**v0.5.0 plan:**
+Documented in `memory://feedback-v0-5-0-exhausted`.
 
-1. **dwdiff linux-musl ×2**: post-process the generated
-   `build/icu/data/Makefile` to add `-Wno-error` to CXXFLAGS
-   directly (sed-patch the Makefile after configure, before
-   make). Or downgrade ICU to 76.1 (predates the C++ warnings).
-2. **dwdiff x86_64-windows**: figure out the right combination
-   of `CC`, `CXX`, `--host=` for `runConfigureICU` when
-   cross-compiling from aarch64-macos-14 to x86_64-w64-mingw32.
-3. **dwdiff x86_64-macos**: fix the `-Wno-error` CXXFLAGS
-   propagation (same fix as #1).
-4. **wdiff linux-musl ×2**: pin Alpine apk versions + add
-   help2man + makeinfo consistently.
+**v0.6.0 plan** (deferred, needs a real work session, not
+a half-day sprint):
+
+1. **wdiff + dwdiff linux-musl ×2**: write a `Dockerfile` with
+   explicit `apk add` steps and lock the toolchain. The current
+   inline `apk add` in the workflow doesn't survive a single
+   Alpine base-image update.
+2. **wdiff + dwdiff x86_64-macos cross-compile**: ship a
+   patched copy of the Apple SDK's broken `_types/_*.h` headers
+   under `upstream/_sdk_patches/` and use `-isysroot` to point
+   the cross-compile at the patched SDK. The aarch64-macos
+   host build keeps using the system SDK.
+3. **wdiff + dwdiff x86_64-windows**: bypass
+   `runConfigureICU` for the cross-compile. Invoke
+   `./configure ...` directly with explicit CC/CXX/--host=
+   flags; then `make -j` without the helper script.
+4. **dwdiff linux-musl ×2**: downgrade ICU from 78.3 to
+   76.1 (or just `git mv upstream/icu/source/data/rules.mk`
+   to disable the `-O3` warnings).
 
 aarch64-windows and additional targets remain deferred.
 
