@@ -42,7 +42,12 @@ jobs:
           - { target: x86_64-windows,     runner: windows-latest,   os: windows               }
           # aarch64-windows deferred — same MSYS2 mingw64 package gap as
           # in ljh-sh/lhasa's build-and-test.yml.
-    continue-on-error: ${{ matrix.target == 'aarch64-linux-musl' || matrix.target == 'aarch64-macos' || matrix.target == 'x86_64-macos' || matrix.target == 'x86_64-windows' }}
+    continue-on-error: true
+    # All matrix entries are best-effort for v0.2.x. The release
+    # workflow (release.yml) is configured with `if: always() &&
+    # needs.build.result != 'cancelled'` so it fires regardless of
+    # which entries succeed — the SHA256SUMS + cosign signatures
+    # only cover the per-target artefacts that did build.
     env:
       TARGET: ${{ matrix.target }}
     steps:

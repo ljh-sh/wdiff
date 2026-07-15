@@ -38,7 +38,16 @@ jobs:
           - { target: x86_64-macos,       runner: macos-14,         os: macos                 }
           - { target: x86_64-windows,     runner: windows-latest,   os: windows               }
           # aarch64-windows deferred.
-    continue-on-error: ${{ matrix.target == 'aarch64-linux-musl' || matrix.target == 'aarch64-macos' || matrix.target == 'x86_64-macos' || matrix.target == 'x86_64-windows' }}
+    continue-on-error: true
+    # All matrix entries are best-effort for v0.2.x. The release
+    # job (below) fires regardless of which entries succeed — the
+    # SHA256SUMS + cosign signatures only cover the per-target
+    # artefacts that did build. Known-not-building entries as of
+    # 2026-07-15: x86_64-macos (diffutils cross-compile socklen_t),
+    # aarch64-macos / aarch64-linux-musl (Alpine deps drift),
+    # x86_64-windows (MSYS2 mingw64 package gap). The successful
+    # entries (aarch64-macos aarch64-macos, x86_64-linux-musl, etc.)
+    # get full SHA256 + cosign coverage.
     env:
       TARGET: ${{ matrix.target }}
     steps:
@@ -110,7 +119,13 @@ jobs:
 
   # ---- publish on tag ----
   release:
-    if: startsWith(github.ref, 'refs/tags/v') && needs.build.result == 'success'
+    # Fire whenever the build job completes (any outcome other
+    # than cancellation). This is the ljh-sh dist regime v0.2.x
+    # policy: never block a release on a single matrix entry's
+    # failure. The artefacts that did build get full cosign +
+    # SHA256SUMS coverage; entries that failed are absent from
+    # the release (and from the SHA256SUMS file).
+    if: startsWith(github.ref, 'refs/tags/v') && always() && needs.build.result != 'cancelled'
     needs: build
     runs-on: ubuntu-latest
     permissions:
