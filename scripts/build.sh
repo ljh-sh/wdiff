@@ -94,11 +94,12 @@ else
 	# C23 `[[__maybe_unused__]]` syntax — diffutils 3.10's gnulib uses
 	# the latter in static inline definitions, which clang rejects in
 	# the `static [[..]] int` position under gnu11.
-	# `-D_SOCKLEN_T` etc skip the broken Xcode 15.4 typedef.
-	# `-include patches/socklen_t_fallback.h` injects our own
-	# typedefs (the SDK's are broken; the patch header is the
-	# workaround — see the file for the full rationale).
-	export CFLAGS="${CFLAGS:-} -O2 -std=gnu11 -D__has_c_attribute\(x\)=0 -D_SOCKLEN_T -D_SSIZE_T -D_INTTMAX_T -D_UID_T -D_GID_T -D_OFF_T -D_ID_T -D_BLKCNT_T -D_FSBLKCNT_T -D_FSFILCNT_T -include $DIFFUTILS_SRC/patches/socklen_t_fallback.h"
+	# Host build (no cross). Don't apply the -D_SOCKLEN_T etc
+	# guards — the host has working SDK typedefs and the
+	# guards would conflict with the system's actual type
+	# definitions. The socklen_t_fallback.h is also not
+	# needed (the host has a working SDK).
+	export CFLAGS="${CFLAGS:-} -O2 -std=gnu11 -D__has_c_attribute\(x\)=0"
 fi
 
 # On macOS (no makeinfo by default), no-op the texinfo step. Linux CI
