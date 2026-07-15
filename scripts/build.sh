@@ -55,7 +55,11 @@ if [ "$TARGET_ARCH" != "$HOST_ARCH" ] || [ -n "${WDIFF_TARGET_OS:-}" ]; then
 	darwin)
 		# Apple SDK is shared between arches; clang auto-discovers via xcrun.
 		export CC=clang
-		export CFLAGS="-arch $TARGET_ARCH -O2 -std=gnu11"
+		# `-D_SOCKLEN_T` skips the broken Xcode 15.4 typedef
+		# in <sys/_types/_socklen_t.h>; `-include` injects our
+		# own typedef via upstream/diffutils/patches/socklen_t_fallback.h.
+		# See the comment in that header for the full rationale.
+		export CFLAGS="-arch $TARGET_ARCH -O2 -std=gnu11 -D__has_c_attribute\(x\)=0 -D_SOCKLEN_T -include $DIFFUTILS_SRC/patches/socklen_t_fallback.h"
 		export LDFLAGS="-arch $TARGET_ARCH"
 		;;
 	windows)
@@ -72,7 +76,7 @@ if [ "$TARGET_ARCH" != "$HOST_ARCH" ] || [ -n "${WDIFF_TARGET_OS:-}" ]; then
 	*)
 		# Generic clang fallback.
 		export CC=clang
-		export CFLAGS="-arch $TARGET_ARCH -O2 -std=gnu11"
+		export CFLAGS="-arch $TARGET_ARCH -O2 -std=gnu11 -D__has_c_attribute\(x\)=0 -D_SOCKLEN_T -include $DIFFUTILS_SRC/patches/socklen_t_fallback.h"
 		export LDFLAGS="-arch $TARGET_ARCH"
 		;;
 	esac
@@ -90,7 +94,11 @@ else
 	# C23 `[[__maybe_unused__]]` syntax — diffutils 3.10's gnulib uses
 	# the latter in static inline definitions, which clang rejects in
 	# the `static [[..]] int` position under gnu11.
-	export CFLAGS="${CFLAGS:-} -O2 -std=gnu11 -D__has_c_attribute\(x\)=0"
+	# `-D_SOCKLEN_T` skips the broken Xcode 15.4 typedef.
+	# `-include patches/socklen_t_fallback.h` injects our own
+	# typedef (the SDK's is broken; the patch header is the
+	# workaround — see the file for the full rationale).
+	export CFLAGS="${CFLAGS:-} -O2 -std=gnu11 -D__has_c_attribute\(x\)=0 -D_SOCKLEN_T -include $DIFFUTILS_SRC/patches/socklen_t_fallback.h"
 fi
 
 # On macOS (no makeinfo by default), no-op the texinfo step. Linux CI
@@ -129,11 +137,11 @@ echo "==> configure diffutils (out-of-tree: $DIFFUTILS_BUILD)"
 # `re_search`, etc.). Without this flag, the static link fails
 # on musl targets with `undefined reference to re_compile_pattern`.
 #
-# `ac_cv_type_socklen_t=socklen_t` skips the broken autoconf
-# detection on the macOS x86_64 cross-compile (the cross-host's
+# `ac_cv_type_socklen_t=yes` tells autoconf "socklen_t is a
+# known type on this system" — bypassing the broken socklen_t
+# probe on the macOS x86_64 cross-compile (the cross-host's
 # clang can't find socklen_t in its SDK when called with
-# `-arch x86_64` from an aarch64 host). This forces configure to
-# accept socklen_t as the system type.
+# `-arch x86_64` from an aarch64 host).
 DIFFUTILS_CONFIGURE_ARGS="--srcdir=$DIFFUTILS_SRC \
 	--disable-dependency-tracking \
 	--disable-silent-rules \
@@ -141,12 +149,30 @@ DIFFUTILS_CONFIGURE_ARGS="--srcdir=$DIFFUTILS_SRC \
 	--enable-static \
 	--with-included-regex \
 	--without-libintl-prefix \
-	ac_cv_type_socklen_t=socklen_t"
+	ac_cv_type_socklen_t=yes"
+
+# GL_CFLAG_GNULIB_WARNINGS is the giant inlined system-typedef
+# block diffutils' Makefile appends to per-file CFLAGS. On the
+# new Apple SDK (Xcode 15.4) the inlined `typedef __darwin_socklen_t
+# socklen_t;` clobbers the system typedef with an expansion clang
+# rejects, AND the shell tokenizes the semicolon-separated block
+# into separate args that the shell tries to exec. We override
+# GL_CFLAG_GNULIB_WARNINGS to empty so the inlined block is skipped;
+# our own typedef comes from upstream/diffutils/patches/socklen_t_fallback.h
+# (passed via -include in CFLAGS).
+export GL_CFLAG_GNULIB_WARNINGS=
 ( cd "$DIFFUTILS_BUILD" && "$DIFFUTILS_SRC/configure" \
 	$DIFFUTILS_CONFIGURE_ARGS )
 
 echo "==> make diffutils -j$JOBS"
-( cd "$DIFFUTILS_BUILD" && make -j"$JOBS" )
+# `make GL_CFLAG_GNULIB_WARNINGS=` overrides the inlined block
+# of system typedefs that diffutils 3.10's Makefile appends to
+# every compile line. On the new Apple SDK (Xcode 15.4) the
+# inlined `typedef __darwin_socklen_t socklen_t;` is broken and
+# would clobber our own typedef from socklen_t_fallback.h.
+# (command-line Make variable override takes precedence over
+# the value the Makefile was generated with.)
+( cd "$DIFFUTILS_BUILD" && make -j"$JOBS" GL_CFLAG_GNULIB_WARNINGS= )
 
 # Locate the freshly-built `diff` binary. Linux/macOS: $DIFFUTILS_BUILD/src/diff.
 # MinGW: $DIFFUTILS_BUILD/src/diff.exe.
