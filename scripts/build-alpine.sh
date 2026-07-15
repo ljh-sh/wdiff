@@ -54,13 +54,18 @@ DIFFUTILS_BUILD="$BUILD_DIR/diffutils"
 mkdir -p "$DIFFUTILS_BUILD"
 
 echo "==> configure diffutils (musl-static + minimal)"
+# `--with-included-regex` forces diffutils to use its bundled gnulib
+# regex instead of the system regex — necessary because musl libc
+# does not provide POSIX `regex.h` (`re_compile_pattern`,
+# `re_search`, etc.). Without this flag, the static link fails on
+# musl targets with `undefined reference to re_compile_pattern`.
 ( cd "$DIFFUTILS_BUILD" && "$ROOT/upstream/diffutils/configure" \
 	--srcdir="$ROOT/upstream/diffutils" \
 	--disable-dependency-tracking \
 	--disable-silent-rules \
 	--disable-shared \
 	--enable-static \
-	--without-included-regex \
+	--with-included-regex \
 	--without-libintl-prefix )
 
 echo "==> make diffutils -j$(getconf _NPROCESSORS_ONLN)"
