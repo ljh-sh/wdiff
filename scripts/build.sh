@@ -123,12 +123,27 @@ DIFFUTILS_BUILD="$BUILD_DIR/diffutils"
 mkdir -p "$DIFFUTILS_BUILD"
 
 echo "==> configure diffutils (out-of-tree: $DIFFUTILS_BUILD)"
-( cd "$DIFFUTILS_BUILD" && "$DIFFUTILS_SRC/configure" \
-	--srcdir="$DIFFUTILS_SRC" \
+# `--with-included-regex` forces diffutils to use its bundled
+# gnulib regex instead of the system regex — necessary because
+# musl libc does not provide POSIX `regex.h` (`re_compile_pattern`,
+# `re_search`, etc.). Without this flag, the static link fails
+# on musl targets with `undefined reference to re_compile_pattern`.
+#
+# `ac_cv_type_socklen_t=socklen_t` skips the broken autoconf
+# detection on the macOS x86_64 cross-compile (the cross-host's
+# clang can't find socklen_t in its SDK when called with
+# `-arch x86_64` from an aarch64 host). This forces configure to
+# accept socklen_t as the system type.
+DIFFUTILS_CONFIGURE_ARGS="--srcdir=$DIFFUTILS_SRC \
 	--disable-dependency-tracking \
 	--disable-silent-rules \
 	--disable-shared \
-	--enable-static )
+	--enable-static \
+	--with-included-regex \
+	--without-libintl-prefix \
+	ac_cv_type_socklen_t=socklen_t"
+( cd "$DIFFUTILS_BUILD" && "$DIFFUTILS_SRC/configure" \
+	$DIFFUTILS_CONFIGURE_ARGS )
 
 echo "==> make diffutils -j$JOBS"
 ( cd "$DIFFUTILS_BUILD" && make -j"$JOBS" )

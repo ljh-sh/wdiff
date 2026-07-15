@@ -70,10 +70,17 @@ jobs:
         with:
           msystem: MINGW64
           update: true
+          # mingw-w64-x86_64-gcc provides gcc (C only).
+          # For projects that need C++ (like dwdiff's bundled ICU
+          # in v0.3.0+), add mingw-w64-x86_64-gcc as well — both
+          # packages are needed for the cross-compile.
           install: >-
             git autoconf automake libtool
             make base-devel
             mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-gettext
+            mingw-w64-x86_64-pkg-config
+            mingw-w64-x86_64-libtool
 
       # ---- build + smoke ----
       # Musl: single Alpine `docker run` does build + smoke (alpine's
