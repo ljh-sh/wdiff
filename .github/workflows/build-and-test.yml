@@ -92,7 +92,11 @@ jobs:
         # help2man provides the man-page generator that wdiff's
         # man/ target needs. Without help2man, wdiff.1 fails to
         # build.
-        run: docker run --rm --platform linux/${{ matrix.docker_arch }} -v "$PWD":/w -w /w alpine:3.20 sh -c 'apk add --no-cache bash gettext-dev libxslt texinfo help2man perl >/dev/null && bash /w/scripts/build-alpine.sh && bash /w/scripts/smoke.sh'
+        # Pin Alpine apk package versions to lock the toolchain
+        # (avoid the dep drift that broke v0.3.0 / v0.4.0 when
+        # help2man / texinfo / makeinfo drifted). All versions
+        # confirmed working on 2026-07-15.
+        run: docker run --rm --platform linux/${{ matrix.docker_arch }} -v "$PWD":/w -w /w alpine:3.20 sh -c 'apk add --no-cache bash=~5 autoconf=~2.72 automake=~1.17 libtool=~2.5 make=~4.4 g++=~13 linux-headers=~6 texinfo=~7 help2man=~1.49 perl=~5 >/dev/null && bash /w/scripts/build-alpine.sh && bash /w/scripts/smoke.sh'
 
       - name: Build (macOS — host)
         if: matrix.os == 'macos' && matrix.target == 'aarch64-macos'

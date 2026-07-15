@@ -79,7 +79,7 @@ jobs:
 
       - name: Build + smoke on Alpine (musl)
         if: matrix.libc == 'musl'
-        run: docker run --rm --platform linux/${{ matrix.docker_arch }} -v "$PWD":/w -w /w alpine:3.20 sh -c 'apk add --no-cache bash gettext-dev libxslt texinfo help2man perl >/dev/null && bash /w/scripts/build-alpine.sh && bash /w/scripts/smoke.sh'
+        run: docker run --rm --platform linux/${{ matrix.docker_arch }} -v "$PWD":/w -w /w alpine:3.20 sh -c 'apk add --no-cache bash=~5 autoconf=~2.72 automake=~1.17 libtool=~2.5 make=~4.4 g++=~13 linux-headers=~6 texinfo=~7 help2man=~1.49 perl=~5 >/dev/null && bash /w/scripts/build-alpine.sh && bash /w/scripts/smoke.sh'
 
       - name: Build (macOS — host)
         if: matrix.os == 'macos' && matrix.target == 'aarch64-macos'
