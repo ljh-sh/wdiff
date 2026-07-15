@@ -59,7 +59,7 @@ if [ "$TARGET_ARCH" != "$HOST_ARCH" ] || [ -n "${WDIFF_TARGET_OS:-}" ]; then
 		# in <sys/_types/_*.h>; `-include` injects our own
 		# typedefs via upstream/diffutils/patches/socklen_t_fallback.h.
 		# See the comment in that header for the full rationale.
-		export CFLAGS="-arch $TARGET_ARCH -O2 -std=gnu11 -D__has_c_attribute\(x\)=0 -D_SOCKLEN_T -D_SSIZE_T -D_INTTMAX_T -D_UID_T -D_GID_T -D_OFF_T -D_ID_T -D_BLKCNT_T -D_FSBLKCNT_T -D_FSFI LCNT_T -include $DIFFUTILS_SRC/patches/socklen_t_fallback.h"
+		export CFLAGS="-arch $TARGET_ARCH -O2 -std=gnu11 -D__has_c_attribute\(x\)=0 -D_SOCKLEN_T -D_SSIZE_T -D_INTTMAX_T -D_UID_T -D_GID_T -D_OFF_T -D_ID_T -D_BLKCNT_T -D_FSBLKCNT_T -D_FSFILCNT_T -include $DIFFUTILS_SRC/patches/socklen_t_fallback.h"
 		export LDFLAGS="-arch $TARGET_ARCH"
 		;;
 	windows)
@@ -94,11 +94,11 @@ else
 	# C23 `[[__maybe_unused__]]` syntax — diffutils 3.10's gnulib uses
 	# the latter in static inline definitions, which clang rejects in
 	# the `static [[..]] int` position under gnu11.
-	# `-D_SOCKLEN_T` skips the broken Xcode 15.4 typedef.
+	# `-D_SOCKLEN_T` etc skip the broken Xcode 15.4 typedef.
 	# `-include patches/socklen_t_fallback.h` injects our own
-	# typedef (the SDK's is broken; the patch header is the
+	# typedefs (the SDK's are broken; the patch header is the
 	# workaround — see the file for the full rationale).
-	export CFLAGS="${CFLAGS:-} -O2 -std=gnu11 -D__has_c_attribute\(x\)=0 -D_SOCKLEN_T -include $DIFFUTILS_SRC/patches/socklen_t_fallback.h"
+	export CFLAGS="${CFLAGS:-} -O2 -std=gnu11 -D__has_c_attribute\(x\)=0 -D_SOCKLEN_T -D_SSIZE_T -D_INTTMAX_T -D_UID_T -D_GID_T -D_OFF_T -D_ID_T -D_BLKCNT_T -D_FSBLKCNT_T -D_FSFILCNT_T -include $DIFFUTILS_SRC/patches/socklen_t_fallback.h"
 fi
 
 # On macOS (no makeinfo by default), no-op the texinfo step. Linux CI
