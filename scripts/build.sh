@@ -55,11 +55,11 @@ if [ "$TARGET_ARCH" != "$HOST_ARCH" ] || [ -n "${WDIFF_TARGET_OS:-}" ]; then
 	darwin)
 		# Apple SDK is shared between arches; clang auto-discovers via xcrun.
 		export CC=clang
-		# `-D_SOCKLEN_T` skips the broken Xcode 15.4 typedef
-		# in <sys/_types/_socklen_t.h>; `-include` injects our
-		# own typedef via upstream/diffutils/patches/socklen_t_fallback.h.
+		# `-D_SOCKLEN_T` etc skip the broken Xcode 15.4 typedefs
+		# in <sys/_types/_*.h>; `-include` injects our own
+		# typedefs via upstream/diffutils/patches/socklen_t_fallback.h.
 		# See the comment in that header for the full rationale.
-		export CFLAGS="-arch $TARGET_ARCH -O2 -std=gnu11 -D__has_c_attribute\(x\)=0 -D_SOCKLEN_T -include $DIFFUTILS_SRC/patches/socklen_t_fallback.h"
+		export CFLAGS="-arch $TARGET_ARCH -O2 -std=gnu11 -D__has_c_attribute\(x\)=0 -D_SOCKLEN_T -D_SSIZE_T -D_INTTMAX_T -D_UID_T -D_GID_T -D_OFF_T -D_ID_T -D_BLKCNT_T -D_FSBLKCNT_T -D_FSFI LCNT_T -include $DIFFUTILS_SRC/patches/socklen_t_fallback.h"
 		export LDFLAGS="-arch $TARGET_ARCH"
 		;;
 	windows)

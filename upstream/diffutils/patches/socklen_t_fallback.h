@@ -1,24 +1,30 @@
 /* socklen_t_fallback.h — local ljh-sh patch for the broken
- * Xcode 15.4 SDK's <sys/_types/_socklen_t.h> typedef.
+ * Xcode 15.4 SDK typedefs.
  *
- * Background:
- *   The SDK does `typedef __darwin_socklen_t socklen_t;` which
- *   expands to `typedef unsigned int socklen_t;` and is rejected
- *   by clang 17+ with "type-name cannot be signed or unsigned".
+ * Background: the new SDK's `<sys/_types/_*.h>` headers do:
+ *   typedef __darwin_XXX_t YYY;
+ * which expands to `typedef unsigned int YYY;` and is rejected
+ * by clang 17+ with "type-name cannot be signed or unsigned".
+ * The workaround is to pre-define the SDK's guard macros so
+ * the typedefs are skipped, AND inject our own typedefs from
+ * the inlined gnulib block before the system includes.
  *
- * Strategy:
- *   1. -D_SOCKLEN_T in CFLAGS → SDK's <sys/_types/_socklen_t.h>
- *      typedef is skipped.
- *   2. The diffutils 3.10 Makefile inlines GL_CFLAG_GNULIB_WARNINGS
- *      (a giant block of system typedefs) on every compile line.
- *      We override it to empty in build.sh so the inlined block
- *      doesn't conflict.
- *   3. This header is -include'd BEFORE the .c file's system
- *      includes. It defines socklen_t from __darwin_socklen_t
- *      so <sys/socket.h> resolves socklen_t correctly.
+ * The affected headers (as of macOS SDK 15.4):
+ *   <sys/_types/_socklen_t.h>   _SOCKLEN_T
+ *   <sys/_types/_ssize_t.h>     _SSIZE_T
+ *   <sys/_types/_intmax_t.h>    _INTMAX_T
+ *   <sys/_types/_uid_t.h>       _UID_T
+ *   <sys/_types/_gid_t.h>       _GID_T
+ *   <sys/_types/_off_t.h>       _OFF_T
+ *   <sys/_types/_id_t.h>        _ID_T
+ *   <sys/_types/_blkcnt_t.h>   _BLKCNT_T
+ *   <sys/_types/_fsblkcnt_t.h> _FSBLKCNT_T
+ *   <sys/_types/_fsfilcnt_t.h> _FSFILCNT_T
  *
  * Pass via CFLAGS:
- *   -D_SOCKLEN_T -include <path-to-this-file>
+ *   -D_SOCKLEN_T -D_SSIZE_T -D_INTTMAX_T -D_UID_T -D_GID_T \
+ *   -D_OFF_T -D_ID_T -D_BLKCNT_T -D_FSBLKCNT_T -D_FSFI LCNT_T \
+ *   -include <path-to-this-file>
  */
 #ifndef _SOCKLEN_T_FALLBACK_LJHSH_DONE
 #define _SOCKLEN_T_FALLBACK_LJHSH_DONE
@@ -26,6 +32,21 @@
 #include <machine/types.h>
 #ifndef socklen_t
 typedef __darwin_socklen_t socklen_t;
+#endif
+#ifndef ssize_t
+typedef __darwin_ssize_t ssize_t;
+#endif
+#ifndef intmax_t
+typedef __darwin_intptr_t intmax_t;
+#endif
+#ifndef uid_t
+typedef __uint32_t uid_t;
+#endif
+#ifndef gid_t
+typedef __uint32_t gid_t;
+#endif
+#ifndef off_t
+typedef __darwin_off_t off_t;
 #endif
 
 #endif
