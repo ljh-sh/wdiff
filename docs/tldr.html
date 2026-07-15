@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TL;DR — wdiff</title>
+<meta name="description" content="Quick reference: the 8 most useful wdiff invocations, copy-pasteable.">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<main class="wrap">
+
+<a href="#main" class="skip">Skip to content</a>
+
+<header class="page-header">
+    <nav class="section-nav"><a href="index.html">↑ home</a> · <a href="install.html">install</a> · <a href="usage.html">usage</a> · <strong>tldr</strong> · <a href="security.html">security</a></nav>
+</header>
+
+
+<section class="hero">
+    <h1>TL;DR</h1>
+    <p class="tagline">The 8 most useful <code>wdiff</code>
+        invocations. Copy-pasteable. If you remember nothing else,
+        remember the first one.</p>
+</section>
+
+<section id="basic">
+    <h2>The essentials</h2>
+<pre><code><b># Word diff: show which words changed between two files</b>
+$ wdiff old.txt new.txt
+the [-quick-]{+slow+} brown fox
+jumps over the [-lazy-]{+sleepy+} dog
+</code></pre>
+
+<pre><code><b>Read one file from stdin (use '-' or omit the second arg)</b>
+$ echo 'the fast red fox' | wdiff - - &lt;&lt;&lt; 'the slow red fox'
+the [-fast-]{+slow+} red fox
+</code></pre>
+
+<pre><code><b>Suppress common text (show only the changes)</b>
+$ wdiff -3 old.txt new.txt
+</code></pre>
+
+<pre><code><b>Statistics to stderr (word counts + change breakdown)</b>
+$ wdiff -s old.txt new.txt
+old.txt: 7 words  6 86% common  1 14% deleted  0 0% changed
+new.txt: 7 words  6 86% common  1 14% inserted  0 0% changed
+</code></pre>
+
+<pre><code><b>Re-format a unified diff at the word level (read from stdin)</b>
+$ git diff | wdiff -d
+</code></pre>
+</section>
+
+<section id="color">
+    <h2>Colour, terminals, and CI</h2>
+<pre><code><b>Force colour markers (e.g. for CI logs)</b>
+$ wdiff --color=always old.txt new.txt | less -R
+</code></pre>
+
+<pre><code><b>Auto-pager (only when stdout is a tty)</b>
+$ wdiff -a old.txt new.txt
+</code></pre>
+
+<pre><code><b>Quiet mode: exit 0/1 only, no output (for shell scripts)</b>
+$ wdiff -q old.txt new.txt &amp;&amp; echo same || echo different
+</code></pre>
+</section>
+
+<section id="advanced">
+    <h2>Advanced</h2>
+<pre><code><b>Custom markers (e.g. ANSI bold instead of the default [- / {+ )</b>
+$ wdiff -w $'\033[1;31m' -x $'\033[0m' \
+        -y $'\033[1;32m' -z $'\033[0m' \
+        old.txt new.txt
+</code></pre>
+
+<pre><code><b>Compare two files case-insensitively</b>
+$ wdiff -i OldFile.TXT newfile.txt
+</code></pre>
+
+<pre><code><b>Show only the deleted words (e.g. for "what was removed?" reports)</b>
+$ wdiff -1 old.txt new.txt
+</code></pre>
+</section>
+
+<section id="when-not">
+    <h2>When NOT to use <code>wdiff</code></h2>
+    <p>
+        <code>wdiff</code> uses <code>isspace()</code> to detect
+        word boundaries. On CJK text without spaces (Chinese /
+        Japanese / Korean), the entire CJK line is treated as one
+        "word" and the diff shows it as a single delete+add. For
+        CJK-aware word diff, use
+        <a href="https://ljh-sh.github.io/dwdiff/">dwdiff</a>
+        instead &mdash; it bundles libicu 78.3 for proper
+        Unicode segmentation.
+    </p>
+</section>
+
+<footer>
+    <p>
+        <a href="index.html">↑ home</a> ·
+        <a href="install.html">install</a> ·
+        <a href="usage.html">usage</a> ·
+        <a href="https://github.com/ljh-sh/wdiff">ljh-sh/wdiff on GitHub</a>
+    </p>
+</footer>
+
+</main>
+
+</body>
+</html>
