@@ -42,7 +42,7 @@ jobs:
           - { target: x86_64-windows,     runner: windows-latest,   os: windows               }
           # aarch64-windows deferred — same MSYS2 mingw64 package gap as
           # in ljh-sh/lhasa's build-and-test.yml.
-    continue-on-error: ${{ matrix.target == 'aarch64-linux-musl' || matrix.target == 'aarch64-macos' || matrix.target == 'x86_64-windows' }}
+    continue-on-error: ${{ matrix.target == 'aarch64-linux-musl' || matrix.target == 'aarch64-macos' || matrix.target == 'x86_64-macos' || matrix.target == 'x86_64-windows' }}
     env:
       TARGET: ${{ matrix.target }}
     steps:
