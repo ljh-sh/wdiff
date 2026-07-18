@@ -80,7 +80,6 @@ jobs:
             mingw-w64-x86_64-gettext
             mingw-w64-x86_64-pkg-config
             mingw-w64-x86_64-libtool
-            mingw-w64-cross-toolchain-aarch64
 
       # ---- build + smoke ----
       # Musl: single Alpine `docker run` does build + smoke (alpine's
