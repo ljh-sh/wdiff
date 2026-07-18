@@ -40,8 +40,7 @@ jobs:
           - { target: aarch64-macos,      runner: macos-14,         os: macos                 }
           - { target: x86_64-macos,       runner: macos-14,         os: macos                 }
           - { target: x86_64-windows,     runner: windows-latest,   os: windows               }
-          # aarch64-windows deferred — same MSYS2 mingw64 package gap as
-          # in ljh-sh/lhasa's build-and-test.yml.
+          - { target: aarch64-windows,    runner: windows-11-arm,   os: windows               }
     continue-on-error: true
     # All matrix entries are best-effort for v0.2.x. The release
     # workflow (release.yml) is configured with `if: always() &&
@@ -81,6 +80,7 @@ jobs:
             mingw-w64-x86_64-gettext
             mingw-w64-x86_64-pkg-config
             mingw-w64-x86_64-libtool
+            mingw-w64-cross-toolchain-aarch64
 
       # ---- build + smoke ----
       # Musl: single Alpine `docker run` does build + smoke (alpine's
@@ -115,6 +115,15 @@ jobs:
       - name: Build (Windows x86_64 — msys2 bash)
         if: matrix.os == 'windows' && matrix.target == 'x86_64-windows'
         shell: msys2 {0}
+        run: bash scripts/build.sh
+
+      - name: Build (Windows aarch64 — cross via mingw cross-toolchain)
+        if: matrix.target == 'aarch64-windows'
+        shell: msys2 {0}
+        env:
+          WDIFF_TARGET_ARCH: aarch64
+          WDIFF_TARGET_OS: windows-gnu
+          WDIFF_OS_HINT: windows
         run: bash scripts/build.sh
 
       # ---- smoke ----
