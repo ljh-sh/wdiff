@@ -5,7 +5,7 @@
 title: "wdiff"
 description: "Free (GPL-3.0) word-level diff front-end, distributed as a single statically-linked binary for Linux/macOS/Windows. GNU wdiff 1.2.2 + diffutils 3.10 vendored by ljh-sh."
 
-# Site served at https://ljh-sh.github.io/wdiff/
+# Site served at https://wdiff.ljh.sh/
 baseurl: /wdiff
 url:    https://ljh-sh.github.io
 

@@ -212,5 +212,5 @@ jobs:
               wdiff-x86_64-linux-musl.tar.gz.cert
             ```
 
-            See [ljh-sh.github.io/wdiff](https://ljh-sh.github.io/wdiff/) for the full
+            See [wdiff.ljh.sh](https://wdiff.ljh.sh/) for the full
             install walkthrough, tldr examples, and security audit.
